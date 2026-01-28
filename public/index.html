@@ -1,0 +1,558 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MMM-WebRadio</title>
+  <style>
+    :root{
+      --gap: 10px;
+      --pad: 14px;
+      --radius: 14px;
+      --bg: #ffffff;
+      --fg: #111111;
+      --muted: #666666;
+      --card-bg: #ffffff;
+      --border: #dddddd;
+      --btn-bg: #f7f7f7;
+      --btn-fg: #111111;
+      --input-bg: #ffffff;
+      --input-fg: #111111;
+      --hr: #eeeeee;
+      --pill-bg: #fafafa;
+    }
+
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      padding: 14px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    .card{
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--card-bg);
+    }
+
+    .muted{ color: var(--muted); }
+
+    .row{
+      display:flex;
+      gap: var(--gap);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* Inputs/buttons: better touch targets */
+    select, input[type="range"], input[type="number"], input[type="text"], button, textarea{
+      font-size: 16px;
+    }
+
+    button{
+      cursor: pointer;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--btn-bg);
+      color: var(--btn-fg);
+      min-height: 44px; /* iOS tap target */
+    }
+    button:active{ transform: scale(0.99); }
+
+    select, input[type="number"], input[type="text"], textarea{
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      min-height: 44px;
+      background: var(--input-bg);
+      color: var(--input-fg);
+    }
+
+    input[type="range"]{
+      width: 100%;
+      height: 44px;
+    }
+
+    textarea{
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 12px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    img{
+      max-height: 70px;
+      max-width: 200px;
+      object-fit: contain;
+    }
+
+    hr{
+      border: 0;
+      border-top: 1px solid var(--hr);
+      margin: 14px 0;
+    }
+
+    /* Layout helpers */
+    .grow{ flex: 1 1 auto; min-width: 180px; }
+    .full{ flex: 1 1 100%; }
+    .btn-group{ display:flex; gap: var(--gap); flex-wrap: nowrap; }
+    .btn-group button{ flex: 1 1 0; }
+
+    .status-grid{
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 10px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .logo-line{
+      display:flex;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .pill{
+      display:inline-block;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--pill-bg);
+      font-size: 13px;
+      color: var(--fg);
+    }
+
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg: #0b0c0f;
+        --fg: #e9e9ea;
+        --muted: #a7a7ad;
+        --card-bg: #12141a;
+        --border: #2a2f3a;
+        --btn-bg: #1a1f29;
+        --btn-fg: #e9e9ea;
+        --input-bg: #0f131b;
+        --input-fg: #e9e9ea;
+        --hr: #232a36;
+        --pill-bg: #161b24;
+      }
+
+      /* nicer focus ring on dark */
+      button:focus, select:focus, input:focus, textarea:focus{
+        outline: 2px solid #3a6ff7;
+        outline-offset: 2px;
+      }
+
+      /* range slider on dark (basic) */
+      input[type="range"]{
+        accent-color: #3a6ff7;
+      }
+    }
+
+    .module-title{
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 12px;
+      text-align: left;
+      letter-spacing: 0.3px;
+    }
+
+    .status-stack{
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0; /* IMPORTANT for wrapping */
+    }
+
+    .station-name{
+      font-weight: 600;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+
+    .song-title{
+      font-size: 14px;
+      line-height: 1.25;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      color: var(--fg);
+    }
+
+    .meta-line{
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .timer-at-row{
+      flex-wrap: wrap;
+    }
+
+    .timer-label{
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    #timerMin{
+      width: auto;      /* let flex decide */
+      flex: 1 1 auto;   /* grow/shrink inside row */
+      min-width: 0;     /* important to avoid overflow in flex */
+    }
+
+    .time-input{
+      min-height: 44px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--input-fg);
+    }
+
+    /* Prevent iOS from forcing weird input colors */
+    input, textarea, select, button{
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Mobile-specific improvements */
+    @media (max-width: 520px){
+      body{ padding: 10px; }
+      .card{ padding: 12px; }
+
+      #logo{ max-width: 90px; }
+
+      /* Station row becomes stacked: select full width, buttons full width */
+      .row.station-row{ flex-direction: column; align-items: stretch; }
+      .row.station-row label{ display:none; }
+      #stations{ width: 100%; }
+
+      /* Transport buttons: big & evenly spaced */
+      .btn-group{
+        width: 100%;
+      }
+
+      /* Volume row stacked */
+      .row.volume-row{ flex-direction: column; align-items: stretch; }
+      .row.volume-row label{ display:none; }
+      #volumeVal{ font-weight: 600; }
+
+      /* Timer row stacked */
+      .row.timer-row{ flex-direction: column; align-items: stretch; }
+      .row.timer-row label{
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .timer-at-row{
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .timer-label{
+        font-size: 13px;
+      }
+
+      /* Scheduler controls */
+      #schWindows{ min-height: 140px; }
+
+    }
+
+    @media (max-width: 520px) and (orientation: portrait){
+      .module-title{ font-size: 17px; }
+      .station-name{ font-size: 17px; }
+      .song-title{ font-size: 15px; }
+    }
+
+    /* Mobile landscape: normalize font sizes */
+    @media (max-width: 900px) and (orientation: landscape){
+      .module-title{ font-size: 16px; }
+      .station-name{ font-size: 16px; }
+      .song-title{ font-size: 14px; }
+      .meta-line{font-size: 13px;}
+    }
+
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="module-title">MMM-WebRadio</div>
+    <div id="authBox" style="display:none">
+      <p class="muted">This Web UI expects a token. Enter it once:</p>
+      <div class="row">
+        <input id="token" placeholder="Token" />
+        <button onclick="saveToken()">Save</button>
+      </div>
+      <hr />
+    </div>
+
+    <div class="row station-row">
+      <label>Station</label>
+      <select id="stations" class="grow"></select>
+
+      <div class="btn-group full">
+        <button onclick="prev()">◀︎</button>
+        <button onclick="play()">Play</button>
+        <button onclick="stop()">Stop</button>
+        <button onclick="next()">▶︎</button>
+      </div>
+    </div>
+
+    <div class="row volume-row" style="margin-top:12px">
+      <label>Volume</label>
+      <div class="full">
+        <input id="volume" type="range" min="0" max="100" value="60" oninput="setVolume(this.value)" />
+        <div class="muted" style="margin-top:6px">Volume: <span id="volumeVal">60</span>%</div>
+      </div>
+    </div>
+
+   <hr />
+
+    <div class="row timer-row" style="margin-top:12px">
+      <label>Sleep timer (minutes)</label>
+      <input id="timerMin" type="number" min="0" max="1440" value="0" class="grow" />
+      <div class="btn-group full">
+        <button onclick="setTimer()">Set</button>
+        <button onclick="clearTimer()">Off</button>
+      </div>
+    </div>
+
+
+    <hr />
+
+    <div class="logo-line">
+      <img id="logo" style="display:none" />
+
+      <div class="status-stack">
+        <div class="station-name" id="stationName">-</div>
+
+        <div class="song-title" id="title">
+          -
+        </div>
+
+        <div class="meta-line">
+          <span id="status">-</span>
+          <span class="muted" id="timerInfo"></span>
+        </div>
+      </div>
+    </div>
+
+
+    <hr />
+
+    <h3>Scheduler</h3>
+
+    <label>
+      <input type="checkbox" id="schEnabled">
+      Enabled
+    </label><br/>
+
+    <label>
+      <input type="checkbox" id="schAutoStart">
+      Auto-start inside window
+    </label><br/>
+
+    <label>
+      <input type="checkbox" id="schStopOutside">
+      Stop outside window
+    </label><br/>
+
+    <div class="row timer-at-row">
+      <label for="schSleepAt" class="timer-label">Sleep at</label>
+      <input type="time" id="schSleepAt" class="time-input" />
+    </div>
+
+
+    <p>Windows (JSON):</p>
+    <textarea id="schWindows" rows="6" style="width:100%;"></textarea>
+
+    <div class="btn-group full" style="margin-top:10px">
+      <button onclick="loadSchedule()">Reload</button>
+      <button onclick="saveSchedule()">Save</button>
+    </div>
+    <p id="schStatus" class="pill"></p>
+
+  </div>
+
+<script>
+  const API = (path) => path;
+  (() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("token");
+    if (t && t.trim()) localStorage.setItem("mmm_webradio_token", t.trim());
+  })();
+  const getToken = () => localStorage.getItem("mmm_webradio_token") || "";
+  const headers = () => {
+    const t = getToken();
+    return t ? { "Content-Type": "application/json", "X-MMM-WebRadio-Token": t } : { "Content-Type": "application/json" };
+  };
+
+  async function apiGet(path) {
+    const res = await fetch(API(path), { headers: headers() });
+    return res.json();
+  }
+
+  async function apiPost(path, body) {
+    const res = await fetch(API(path), {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify(body || {})
+    });
+    return res.json();
+  }
+
+  function saveToken() {
+    localStorage.setItem("mmm_webradio_token", document.getElementById("token").value.trim());
+    document.getElementById("authBox").style.display = "none";
+    init();
+  }
+
+  async function init() {
+    const st = await apiGet("/api/stations");
+    if (!st.ok && st.error === "unauthorized") {
+      document.getElementById("authBox").style.display = "block";
+      return;
+    }
+    const sel = document.getElementById("stations");
+    sel.innerHTML = "";
+    st.stations.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.index;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+
+    sel.onchange = async () => {
+      await apiPost("/api/play", { index: parseInt(sel.value, 10) });
+      await refresh();
+    };
+
+    await refresh();
+    await loadSchedule();
+    setInterval(refresh, 1500);
+  }
+
+  async function refresh() {
+    const res = await apiGet("/api/state");
+    if (!res.ok) return;
+
+    const s = res.state;
+    document.getElementById("status").textContent = s.playing ? "Playing" : "Stopped";
+    document.getElementById("title").textContent = s.title || "(no metadata)";
+    document.getElementById("stations").value = s.stationIndex;
+    document.getElementById("stationName").textContent =
+    document.getElementById("stations").selectedOptions[0]?.textContent || "";
+
+
+    document.getElementById("volume").value = s.volume;
+    document.getElementById("volumeVal").textContent = s.volume;
+
+    const logo = document.getElementById("logo");
+    if (s.logoUrl) {
+      logo.src = s.logoUrl;
+      logo.style.display = "block";
+    } else {
+      logo.style.display = "none";
+    }
+
+    const timerInfo = document.getElementById("timerInfo");
+    if (s.sleepTimerEndsAt) {
+      const mins = Math.max(0, Math.ceil((s.sleepTimerEndsAt - Date.now()) / 60000));
+      timerInfo.textContent = `Timer: ${mins} min remaining`;
+    } else {
+      timerInfo.textContent = "";
+    }
+  }
+
+  async function play() {
+    const idx = parseInt(document.getElementById("stations").value, 10);
+    await apiPost("/api/play", { index: idx });
+    await refresh();
+  }
+  async function stop() {
+    await apiPost("/api/stop");
+    await refresh();
+  }
+  async function next() {
+    await apiPost("/api/next");
+    await refresh();
+  }
+  async function prev() {
+    await apiPost("/api/prev");
+    await refresh();
+  }
+  async function setVolume(v) {
+    document.getElementById("volumeVal").textContent = v;
+    await apiPost("/api/volume", { volume: parseInt(v, 10) });
+  }
+  async function setTimer() {
+    const m = parseInt(document.getElementById("timerMin").value, 10) || 0;
+    await apiPost("/api/timer", { minutes: m });
+    await refresh();
+  }
+  async function clearTimer() {
+    await apiPost("/api/timer", { minutes: 0 });
+    await refresh();
+  }
+  async function loadSchedule() {
+    const out = document.getElementById("schStatus");
+    out.textContent = "Loading...";
+    const r = await apiGet("/api/schedule");
+    if (!r.ok) { out.textContent = "Error loading schedule"; return; }
+
+    const s = r.schedule || {};
+    document.getElementById("schEnabled").checked = !!s.enabled;
+    document.getElementById("schAutoStart").checked = (s.autoStartInsideWindow !== false);
+    document.getElementById("schStopOutside").checked = !!s.stopOutsideWindow;
+    document.getElementById("schSleepAt").value = s.sleepAt || "";
+
+    const windows = Array.isArray(s.windows) ? s.windows : [];
+    document.getElementById("schWindows").value = JSON.stringify(windows, null, 2);
+
+    out.textContent = "Loaded.";
+  }
+
+  async function saveSchedule() {
+    const out = document.getElementById("schStatus");
+    out.textContent = "Saving...";
+
+    let windows = [];
+    try {
+      const raw = document.getElementById("schWindows").value.trim();
+      windows = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(windows)) throw new Error("windows not array");
+    } catch (e) {
+      out.textContent = "Windows JSON invalid: " + e.message;
+      return;
+    }
+
+    const schedule = {
+      enabled: document.getElementById("schEnabled").checked,
+      autoStartInsideWindow: document.getElementById("schAutoStart").checked,
+      stopOutsideWindow: document.getElementById("schStopOutside").checked,
+      sleepAt: document.getElementById("schSleepAt").value.trim(),
+      windows
+    };
+
+    const r = await apiPost("/api/schedule", { schedule });
+    out.textContent = r.ok ? "Saved." : ("Save failed: " + (r.error || "unknown"));
+  }
+
+  init();
+</script>
+</body>
+</html>

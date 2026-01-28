@@ -1,0 +1,12 @@
+{
+  "WEBRADIO": "Webradio",
+  "NO_STATIONS": "Keine Sender konfiguriert",
+  "PLAYING": "Wiedergabe",
+  "STOPPED": "Gestoppt",
+  "NO_METADATA": "Keine Songinfo",
+  "VOLUME": "Lautstärke",
+  "TIMER": "Timer",
+  "MINUTES": "Minuten",
+  "WEB_CONTROL": "Web-Steuerung",
+  "NOW_PLAYING": "Jetzt läuft"
+}

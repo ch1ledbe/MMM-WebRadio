@@ -1,0 +1,11 @@
+{
+  "name": "mmm-webradio",
+  "version": "1.0.0",
+  "description": "MagicMirror WebRadio module with web control",
+  "main": "MMM-WebRadio.js",
+  "dependencies": {
+    "express": "^4.19.2",
+    "@music-metadata/icy": "^0.2.1",
+    "node-fetch": "^3.3.2"
+  }
+}
