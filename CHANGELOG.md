@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.0] – 2026-02-02
+
+### Added
+- MPV IPC–based metadata handling for song titles (`metadata`, `media-title`)
+- Single-stream architecture: mpv is now the only consumer of the radio stream
+- Keywords/tags in `package.json` for improved module list discovery
+- `npm run upgrade` script for clean in-place module updates from Git
+- Robust IPC command handling with proper JSON line parsing
+- Improved process cleanup on player exit (exit/close handling)
+
+### Changed
+- Migrated title handling away from ICY HTTP polling to mpv IPC
+- Volume changes are now applied instantly via mpv IPC (no stream restart)
+- Scheduler start/stop uses fade-in / fade-out without restarting playback
+- Web API authentication clarified and enforced only on `/api/*`
+- Web UI defaults aligned with actual runtime behavior
+- Reduced unnecessary network usage when playback is stopped
+
+### Removed
+- Removed ICY metadata streaming via `@music-metadata/icy`
+- Removed secondary HTTP stream used only for title polling
+- Removed unused and redundant mpv process exit handlers
+- Removed unnecessary dependencies from `package.json` (when using Node ≥ 18)
+
+### Fixed
+- Fixed mpv IPC client never resolving due to waiting for socket close
+- Fixed lingering background network streams after stopping playback
+- Fixed incorrect process exit handling that could leave stale state
+- Fixed persistence file mismatch between load and save paths
+- Fixed type-safety issues with station index and polling intervals
+
+---
+
 ## [1.1.0] – 2026-01-28
 
 ### Added
