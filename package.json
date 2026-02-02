@@ -1,11 +1,30 @@
 {
   "name": "mmm-webradio",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "MagicMirror WebRadio module with web control",
   "main": "MMM-WebRadio.js",
+  "keywords": [
+    "magicmirror",
+    "magicmirror-module",
+    "mmm",
+    "webradio",
+    "radio",
+    "streaming",
+    "audio",
+    "mpv",
+    "web-ui",
+    "remote-control",
+    "scheduler"
+  ],
+  "scripts": {
+    "upgrade": "BRANCH=$(git symbolic-ref -q --short refs/remotes/origin/HEAD | sed 's@^origin/@@' || echo main) && git fetch --all --prune && git reset --hard origin/$BRANCH && git clean -fd && npm install"
+  },
   "dependencies": {
     "express": "^4.19.2",
-    "@music-metadata/icy": "^0.2.1",
-    "node-fetch": "^3.3.2"
+     "eslint": "^8.57.0"
+  },
+  "engines": {
+    "lint": "eslint .",
+    "node": ">=18"
   }
 }

@@ -98,41 +98,63 @@ module.exports = NodeHelper.create({
     return new Promise((resolve, reject) => {
       if (!this.ipcPath) return reject(new Error("No IPC socket path"));
       const sock = this.ipcPath;
+      const client = net.createConnection(sock);
+      let buf = "";
+      let finished = false;
 
-      const client = net.createConnection(sock, () => {
+      const done = (err, result) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        try { client.end(); } catch (_) {}
+        try { client.destroy(); } catch (_) {}
+        if (err) return reject(err);
+        resolve(result);
+      };
+
+      client.on("connect", () => {
         try {
           client.write(JSON.stringify(cmd) + "\n");
         } catch (e) {
-          client.end();
-          reject(e);
+          done(e);
         }
       });
 
-      let data = "";
-      client.on("data", (chunk) => { data += chunk.toString("utf8"); });
+      client.on("data", (chunk) => {
+        buf += chunk.toString("utf8");
 
-      client.on("error", (err) => {
-        try { client.destroy(); } catch (_) {}
-        reject(err);
-      });
+        // mpv replies with JSON objects separated by '\n'
+        const nl = buf.indexOf("\n");
+        if (nl === -1) return;
 
-      client.on("end", () => {
-        // mpv returns JSON line(s); we only need success/failure
+        const line = buf.slice(0, nl).trim();
+        if (!line) return;
+
         try {
-          const lines = data.trim().split("\n").filter(Boolean);
-          const last = lines.length ? JSON.parse(lines[lines.length - 1]) : null;
-          resolve(last);
-        } catch (_) {
-          resolve(null);
+          const obj = JSON.parse(line);
+          done(null, obj);
+        } catch (e) {
+          done(e);
         }
       });
+
+      client.on("error", (err) => done(err));
 
       // safety timeout
-      setTimeout(() => {
-        try { client.destroy(); } catch (_) {}
-        reject(new Error("IPC timeout"));
+      const timer = setTimeout(() => {
+        done(new Error("IPC timeout"));
       }, 1500);
+    
     });
+  },
+
+  async mpvGetProperty(name) {
+    // Example: { "command": ["get_property", "metadata"] }
+    try {
+      const res = await this.sendMpvCommand({ command: ["get_property", name] });
+      if (res && res.error === "success") return res.data;
+    } catch (_) {}
+    return null;
   },
 
   async mpvSetProperty(name, value) {
@@ -539,7 +561,6 @@ module.exports = NodeHelper.create({
   },
 
  startTitlePolling(streamUrl) {
-    // stop any previous poller and bump generation
     this.stopTitlePolling();
     const myGen = this.titleGen;
 
@@ -548,41 +569,42 @@ module.exports = NodeHelper.create({
     this.pushState();
 
     let stopped = false;
-    let controller = null;
     let loopTimer = null;
+    let running = false;
 
     const runOnce = async () => {
       if (stopped) return;
       // ignore if a newer poller started
       if (myGen !== this.titleGen) return;
-
-      controller = new AbortController();
-      const timeout = setTimeout(() => {
-        try { controller.abort(); } catch (_) {}
-      }, 20000);
+      if (running) return;
+      running = true;
 
       try {
-        const res = await fetch(streamUrl, {
-          signal: controller.signal,
-          headers: { "Icy-MetaData": "1" }
-        });
+        // Prefer ICY title from mpv metadata (single stream: mpv only)
+        const md = await this.mpvGetProperty("metadata");
+        let t = "";
 
-        // IMPORTANT: parseIcyResponse must be in scope (require("@music-metadata/icy"))
-        parseIcyResponse(res, ({ metadata }) => {
-          // ignore old station callbacks
-          if (myGen !== this.titleGen) return;
+       if (md && typeof md === "object") {
+          // mpv metadata keys vary by stream; check common ones
+          t =
+            (md["icy-title"] ?? md["ICY_TITLE"] ?? md["StreamTitle"] ?? md["streamtitle"] ?? md["title"] ?? "");
+        }
+       // Fallback: mpv's computed media-title (often includes ICY)
+        if (!t) {
+          const mt = await this.mpvGetProperty("media-title");
+          t = mt || "";
+        }
 
-          const t = metadata && metadata.StreamTitle ? String(metadata.StreamTitle).trim() : "";
-          if (t && t !== this.state.title) {
-            this.state.title = t;
-            this.pushState();
-          }
-        });
+        t = String(t || "").trim();
+
+        if (t && t !== this.state.title) {
+          this.state.title = t;
+          this.pushState();
+        }
       } catch (_) {
-        // ignore timeouts/network
+        // ignore IPC errors
       } finally {
-        clearTimeout(timeout);
-        controller = null;
+        running = false;
 
         if (!stopped && myGen === this.titleGen) {
           loopTimer = setTimeout(runOnce, 1500);
@@ -596,10 +618,6 @@ module.exports = NodeHelper.create({
       stopped = true;
       if (loopTimer) clearTimeout(loopTimer);
       loopTimer = null;
-      if (controller) {
-        try { controller.abort(); } catch (_) {}
-      }
-      controller = null;
     };
   },
 
@@ -643,6 +661,7 @@ module.exports = NodeHelper.create({
         stdio: ["ignore", "ignore", "ignore"]
       });
 
+      const proc = self.playerProc;
       const targetVol = self.state.volume;
       const f = self.getFadeCfg();
       const doFadeIn = !!(opts && opts.fadeIn); // only scheduler will set this true
@@ -663,15 +682,23 @@ module.exports = NodeHelper.create({
         }
       });
 
-      self.playerProc.on("exit", () => {
-        const proc = self.playerProc;
-        proc.on("exit", () => {
-          if (self.playerProc !== proc) return; // ignore old proc exits
-          self.playerProc = null;
-          self.state.playing = false;
-          self.pushState();
-        });
-      });
+      const onProcEnd = () => {
+        // Ignore if a newer proc has been started since this handler was registered
+        if (self.playerProc !== proc) return;
+
+        self.playerProc = null;
+        self.state.playing = false;
+
+        // Best-effort cleanup
+        self.stopTitlePolling();
+        const oldSock = self.ipcPath;
+        self.ipcPath = null;
+        try { if (oldSock) fs.unlinkSync(oldSock); } catch (_) {}
+
+        self.pushState();
+      };
+      proc.once("exit", onProcEnd);
+      proc.once("close", onProcEnd);
 
       // Start metadata polling if you have it
       if (typeof self.startTitlePolling === "function") {

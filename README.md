@@ -21,10 +21,27 @@ It supports station switching, volume control, scheduling, sleep timers, persist
 
 ## Screenshots
 ### Mirror UI
+![alt text](image.png)
+![alt text](image-2.png)
 
 ### Web UI
+![alt text](image-1.png)
 
 ### Scheduler Configuration
+```bash
+[
+  {
+    "days": [1,2,3,4,5],
+    "start": "06:30",
+    "end": "06:50"
+  },
+  {
+    "days": [6,0],
+    "start": "08:00",
+    "end": "12:00"
+  }
+]
+```
 
 ## Requirements
 - MagicMirror²
@@ -41,6 +58,12 @@ cd ~/MagicMirror/modules
 git clone https://github.com/ch1ledbe/MMM-WebRadio
 cd MMM-WebRadio
 npm install
+```
+
+## Update
+```bash
+cd ~/MagicMirror/modules/MMM-WebRadio
+npm run upgrade
 ```
 
 ## Configuration example
