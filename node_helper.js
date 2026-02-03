@@ -2,7 +2,6 @@ const NodeHelper = require("node_helper");
 const express = require("express");
 const path = require("path");
 const { spawn } = require("child_process");
-const { parseIcyResponse } = require("@music-metadata/icy");
 const fs = require("fs");
 const net = require("net");
 
