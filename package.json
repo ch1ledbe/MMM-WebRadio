@@ -17,14 +17,16 @@
     "scheduler"
   ],
   "scripts": {
-    "upgrade": "BRANCH=$(git symbolic-ref -q --short refs/remotes/origin/HEAD | sed 's@^origin/@@' || echo main) && git fetch --all --prune && git reset --hard origin/$BRANCH && git clean -fd && npm install"
+    "upgrade": "BRANCH=$(git symbolic-ref -q --short refs/remotes/origin/HEAD | sed 's@^origin/@@' || echo main) && git fetch --all --prune && git reset --hard origin/$BRANCH && git clean -fd && npm install --omit=dev",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "express": "^4.19.2",
-     "eslint": "^8.57.0"
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
   },
   "engines": {
-    "lint": "eslint .",
     "node": ">=18"
   }
 }

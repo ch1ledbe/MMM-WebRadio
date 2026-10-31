@@ -4,6 +4,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const net = require("net");
+const crypto = require("crypto");
 
 // fetch() compatibility (Node < 18)
 let fetchFn = global.fetch;
@@ -14,6 +15,74 @@ const fetch = (...args) => fetchFn(...args);
 
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
+}
+
+function parseHHMM(s) {
+  if (!s || typeof s !== "string") return null;
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const hh = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return hh * 60 + mm;
+}
+
+// Constant-time token comparison (hashing first hides the token length)
+function tokenMatches(got, token) {
+  const a = crypto.createHash("sha256").update(String(got)).digest();
+  const b = crypto.createHash("sha256").update(String(token)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+const SCHEDULE_FLAGS = ["enabled", "autoStartInsideWindow", "stopOutsideWindow"];
+const MAX_SCHEDULE_WINDOWS = 50;
+
+// Returns an error message, or null if the (partial) schedule is valid
+function validateSchedule(sch) {
+  if (!sch || typeof sch !== "object" || Array.isArray(sch)) return "schedule must be an object";
+
+  for (const k of SCHEDULE_FLAGS) {
+    if (sch[k] !== undefined && typeof sch[k] !== "boolean") return `${k} must be a boolean`;
+  }
+
+  if (sch.sleepAt !== undefined && sch.sleepAt !== "" && parseHHMM(sch.sleepAt) === null) {
+    return "sleepAt must be \"HH:MM\" or empty";
+  }
+
+  if (sch.windows !== undefined) {
+    if (!Array.isArray(sch.windows)) return "windows must be an array";
+    if (sch.windows.length > MAX_SCHEDULE_WINDOWS) return `at most ${MAX_SCHEDULE_WINDOWS} windows allowed`;
+
+    for (const w of sch.windows) {
+      if (!w || typeof w !== "object" || Array.isArray(w)) return "each window must be an object";
+      if (w.days !== undefined) {
+        if (!Array.isArray(w.days) || !w.days.every(d => Number.isInteger(d) && d >= 0 && d <= 6)) {
+          return "window days must be an array of integers 0-6";
+        }
+      }
+      if (parseHHMM(w.start) === null || parseHHMM(w.end) === null) {
+        return "window start/end must be \"HH:MM\"";
+      }
+    }
+  }
+  return null;
+}
+
+// Copy only known schedule keys (expects a validated schedule)
+function pickSchedule(sch) {
+  const out = {};
+  for (const k of SCHEDULE_FLAGS) {
+    if (sch[k] !== undefined) out[k] = sch[k];
+  }
+  if (sch.sleepAt !== undefined) out.sleepAt = sch.sleepAt;
+  if (sch.windows !== undefined) {
+    out.windows = sch.windows.map(w => ({
+      days: Array.isArray(w.days) ? w.days.slice() : [],
+      start: w.start,
+      end: w.end
+    }));
+  }
+  return out;
 }
 
 function safeStation(st) {
@@ -244,8 +313,14 @@ module.exports = NodeHelper.create({
     if (!this.config || !this.config.persist || !this.config.persist.enabled) return;
     if (!this.persisted || !this.persisted.schedule) return;
 
+    const err = validateSchedule(this.persisted.schedule);
+    if (err) {
+      console.warn("[MMM-WebRadio] Ignoring invalid persisted schedule:", err);
+      return;
+    }
+
     // If schedule exists in persisted state, override config.schedule
-    this.config.schedule = Object.assign({}, this.config.schedule || {}, this.persisted.schedule);
+    this.config.schedule = Object.assign({}, this.config.schedule || {}, pickSchedule(this.persisted.schedule));
   },
 
   startScheduler() {
@@ -267,22 +342,21 @@ module.exports = NodeHelper.create({
   },
 
   applyScheduleOnce(isBoot) {
+    try {
+      this.applyScheduleRules(isBoot);
+    } catch (e) {
+      // A broken schedule must never take down the module
+      console.error("[MMM-WebRadio] Scheduler error:", e.message);
+    }
+  },
+
+  applyScheduleRules(isBoot) {
     const sch = this.config && this.config.schedule ? this.config.schedule : null;
     if (!sch || !sch.enabled) return;
 
     const d = new Date();
     const day = d.getDay(); // 0=Sun..6=Sat
     const minNow = d.getHours() * 60 + d.getMinutes();
-
-    const parseHHMM = (s) => {
-      if (!s || typeof s !== "string") return null;
-      const m = s.match(/^(\d{1,2}):(\d{2})$/);
-      if (!m) return null;
-      const hh = parseInt(m[1], 10);
-      const mm = parseInt(m[2], 10);
-      if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-      return hh * 60 + mm;
-    };
 
     const inWindow = (nowMins, startM, endM) => {
       if (startM == null || endM == null) return false;
@@ -305,6 +379,7 @@ module.exports = NodeHelper.create({
 
     for (let i = 0; i < windows.length; i++) {
       const w = windows[i];
+      if (!w || typeof w !== "object") continue;
       const days = Array.isArray(w.days) ? w.days : [];
       if (days.length && days.indexOf(day) === -1) continue;
 
@@ -434,15 +509,62 @@ module.exports = NodeHelper.create({
     const port = (this.config.web && this.config.web.port) ? this.config.web.port : 8787;
     const token = (this.config.web && this.config.web.token) ? this.config.web.token : "";
 
+    if (!token) {
+      console.warn(`[MMM-WebRadio] WARNING: web.token is not set. Anyone on your network can control the radio via port ${port}.`);
+    }
+
     this.app = express();
     this.app.use(express.json());
 
+    // Reject API calls made by foreign web pages (CSRF): browsers always send
+    // an Origin header on cross-site requests, so it must match our own host.
+    this.app.use("/api", (req, res, next) => {
+      const origin = req.headers.origin;
+      if (origin) {
+        let originHost = "";
+        try { originHost = new URL(origin).host; } catch (_) {}
+        if (originHost !== req.headers.host) {
+          return res.status(403).json({ ok: false, error: "forbidden origin" });
+        }
+      }
+      next();
+    });
+
+    // Throttle failed token attempts per client
+    const MAX_AUTH_FAILURES = 10;
+    const AUTH_WINDOW_MS = 60 * 1000;
+    const authFailures = new Map(); // ip -> { count, resetAt }
+
     const auth = (req, res, next) => {
       if (!token) return next();
+
+      const ip = req.socket.remoteAddress || "";
+      const now = Date.now();
+      let entry = authFailures.get(ip);
+      if (entry && entry.resetAt <= now) {
+        authFailures.delete(ip);
+        entry = null;
+      }
+      if (entry && entry.count >= MAX_AUTH_FAILURES) {
+        return res.status(429).json({ ok: false, error: "too many failed attempts" });
+      }
+
       const got = req.headers["x-mmm-webradio-token"] || req.query.token || "";
-      if (got !== token) return res.status(401).json({ ok: false, error: "unauthorized" });
+      if (!tokenMatches(got, token)) {
+        if (authFailures.size > 1000) authFailures.clear();
+        if (!entry) {
+          entry = { count: 0, resetAt: now + AUTH_WINDOW_MS };
+          authFailures.set(ip, entry);
+        }
+        entry.count += 1;
+        return res.status(401).json({ ok: false, error: "unauthorized" });
+      }
+
+      authFailures.delete(ip);
       next();
     };
+
+    const badRequest = (res, error) => res.status(400).json({ ok: false, error });
 
     // Serve UI (protected if token is set)
     //this.app.use("/", auth, express.static(path.join(__dirname, "public")));
@@ -460,9 +582,14 @@ module.exports = NodeHelper.create({
     });
 
     this.app.post("/api/play", auth, (req, res) => {
-      const idx = (req.body && req.body.index !== undefined && req.body.index !== null)
-        ? parseInt(req.body.index, 10)
-        : this.state.stationIndex;
+      let idx = this.state.stationIndex;
+      if (req.body && req.body.index !== undefined && req.body.index !== null) {
+        const count = (this.config.stations || []).length;
+        idx = parseInt(req.body.index, 10);
+        if (!Number.isInteger(idx) || idx < 0 || idx >= count) {
+          return badRequest(res, `index must be an integer between 0 and ${count - 1}`);
+        }
+      }
       this.manualStopLatch = false;         // user explicitly wants playback
       this.play(idx).then(() => res.json({ ok: true, state: this.state }));
     });
@@ -475,7 +602,9 @@ module.exports = NodeHelper.create({
 
 
     this.app.post("/api/volume", auth, (req, res) => {
-      const vol = clamp(parseInt(req.body && req.body.volume, 10), 0, 100);
+      const raw = parseInt(req.body && req.body.volume, 10);
+      if (!Number.isFinite(raw)) return badRequest(res, "volume must be a number 0-100");
+      const vol = clamp(raw, 0, 100);
       this.setVolume(vol).then(() => res.json({ ok: true, state: this.state }));
     });
 
@@ -490,7 +619,9 @@ module.exports = NodeHelper.create({
     });
 
     this.app.post("/api/timer", auth, (req, res) => {
-      const minutes = clamp(parseInt(req.body && req.body.minutes, 10), 0, 24 * 60);
+      const raw = parseInt(req.body && req.body.minutes, 10);
+      if (!Number.isFinite(raw)) return badRequest(res, "minutes must be a number 0-1440");
+      const minutes = clamp(raw, 0, 24 * 60);
       this.setSleepTimer(minutes);
       res.json({ ok: true, state: this.state });
     });
@@ -509,19 +640,12 @@ module.exports = NodeHelper.create({
 
     this.app.post("/api/schedule", auth, (req, res) => {
       const incoming = req.body && req.body.schedule ? req.body.schedule : null;
-      if (!incoming || typeof incoming !== "object") {
-        return res.status(400).json({ ok: false, error: "missing schedule" });
-      }
+      if (!incoming) return badRequest(res, "missing schedule");
 
-      // Minimal validation (keep it permissive)
-      const next = Object.assign({}, this.config.schedule || {}, incoming);
+      const err = validateSchedule(incoming);
+      if (err) return badRequest(res, err);
 
-      // Ensure windows is an array if provided
-      if (incoming.windows && !Array.isArray(incoming.windows)) {
-        return res.status(400).json({ ok: false, error: "windows must be an array" });
-      }
-
-      this.config.schedule = next;
+      this.config.schedule = Object.assign({}, this.config.schedule || {}, pickSchedule(incoming));
 
       // Restart scheduler with new rules
       this.startScheduler();

@@ -57,7 +57,7 @@ It supports station switching, volume control, scheduling, sleep timers, persist
 cd ~/MagicMirror/modules
 git clone https://github.com/ch1ledbe/MMM-WebRadio
 cd MMM-WebRadio
-npm install
+npm install --omit=dev
 ```
 
 ## Update
@@ -101,7 +101,7 @@ Add to config/config.js:
     web: {
       enabled: true,
       port: 8787,
-      token: "" // set a token to protect the API
+      token: "" // strongly recommended: set a token to protect the API
     },
 
     // Optional: persistence across restarts
@@ -164,7 +164,7 @@ Add to config/config.js:
 |-------------|---------------|---------|-------------|
 | `web.enabled` | boolean | `true` | Enable Web UI & REST API. Set to `false` to run “Mirror-only”. |
 | `web.port`    | number  | `8787` | Port for Web UI & API. |
-| `web.token`   | string  | `""`   | Optional API access token. |
+| `web.token`   | string  | `""`   | API access token. Without a token, anyone on your network can control the radio (a warning is logged at startup). |
 
 Open the Web UI:
 
@@ -177,6 +177,8 @@ If a token is set, you can pass it to the Web UI via query parameter:
 ```text
 http://<MAGICMIRROR-IP>:8787/?token=YOUR_TOKEN
 ```
+
+The Web UI stores the token in the browser and removes it from the address bar.
 
 ### Persistence
 
@@ -223,8 +225,14 @@ Fade is used when the scheduler starts playback (fade in) and when it stops play
 ## API authentication
 
 If `web.token` is set, all API requests require either:
-- Header `X-MMM-WebRadio-Token: YOUR_TOKEN`, or
-- Query parameter `?token=YOUR_TOKEN`
+- Header `X-MMM-WebRadio-Token: YOUR_TOKEN` (recommended), or
+- Query parameter `?token=YOUR_TOKEN` (may end up in logs and browser history)
+
+Security notes:
+- After 10 failed token attempts within one minute, a client gets `429 Too Many Requests` until the minute is over.
+- Requests sent by other web pages (cross-origin `Origin` header) are rejected with `403`, whether or not a token is set.
+- Invalid input (e.g. an unknown station index, a non-numeric volume or an invalid schedule) is rejected with `400`.
+- Schedule windows need `start`/`end` as `"HH:MM"` and `days` as integers `0–6`; at most 50 windows are allowed.
 
 ## API endpoints
 

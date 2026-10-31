@@ -21,6 +21,13 @@ module.exports = {
     // Be tolerant with legacy patterns
     "prefer-const": "warn"
   },
+  overrides: [
+    {
+      // Front-end module runs in the browser (Electron)
+      files: ["MMM-WebRadio.js"],
+      env: { browser: true }
+    }
+  ],
   ignorePatterns: [
     "node_modules/",
     "public/",

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Security
+- Reject cross-origin API requests (CSRF protection via `Origin` check)
+- Constant-time token comparison
+- Rate limit failed token attempts (10 per minute per client, then `429`)
+- Log a warning at startup when the API runs without `web.token`
+- Web UI removes `?token=` from the address bar after storing it
+
+### Fixed
+- Strict validation of `/api/schedule` input; unknown keys are dropped
+- Invalid persisted schedules are ignored instead of breaking the module on startup
+- Scheduler errors no longer crash the scheduler loop
+- `/api/play`, `/api/volume` and `/api/timer` reject invalid values with `400`
+- `npm run upgrade` no longer deletes `webradio-state.json`
+
+### Changed
+- `eslint` moved to `devDependencies`; install with `npm install --omit=dev`
+- `lint` moved from `engines` to `scripts`; ESLint now knows the browser globals in `MMM-WebRadio.js`
+
+---
+
 ## [1.2.0] – 2026-02-02
 
 ### Added

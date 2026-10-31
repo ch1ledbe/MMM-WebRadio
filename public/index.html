@@ -394,6 +394,12 @@
     const params = new URLSearchParams(window.location.search);
     const t = params.get("token");
     if (t && t.trim()) localStorage.setItem("mmm_webradio_token", t.trim());
+    if (params.has("token")) {
+      // Drop the token from the address bar so it doesn't end up in history/bookmarks
+      params.delete("token");
+      const qs = params.toString();
+      history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : "") + window.location.hash);
+    }
   })();
   const getToken = () => localStorage.getItem("mmm_webradio_token") || "";
   const headers = () => {
