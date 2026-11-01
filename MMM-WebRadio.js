@@ -1,4 +1,4 @@
-/* global Module */
+/* global Module, config */
 
 Module.register("MMM-WebRadio", {
   defaults: {
@@ -46,7 +46,9 @@ Module.register("MMM-WebRadio", {
       sleepTimerEndsAt: null
     };
 
-    this.sendSocketNotification("MMM_WEBRADIO_INIT", { config: this.config });
+    // Pass MagicMirror's global language (config.js) so the Web UI can use it
+    var language = (typeof config !== "undefined" && config.language) ? config.language : "en";
+    this.sendSocketNotification("MMM_WEBRADIO_INIT", { config: this.config, language: language });
 
     var self = this;
     var interval = (typeof this.config.updateIntervalMs === "number" && this.config.updateIntervalMs >= 500)

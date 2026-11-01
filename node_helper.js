@@ -85,6 +85,30 @@ function pickSchedule(sch) {
   return out;
 }
 
+// Load translations/<lang>.json on top of English; falls back to the base
+// language ("de" for "de-CH") and to English for missing keys.
+function loadTranslations(language) {
+  const read = (lang) => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(__dirname, "translations", `${lang}.json`), "utf8"));
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const strings = Object.assign({}, read("en"));
+  const requested = String(language || "en").toLowerCase();
+  // Only plain language codes, never arbitrary paths
+  if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(requested)) return { language: "en", strings };
+
+  const candidates = [requested, requested.split("-")[0]];
+  for (const lang of candidates) {
+    const data = read(lang);
+    if (data) return { language: lang, strings: Object.assign(strings, data) };
+  }
+  return { language: "en", strings };
+}
+
 function safeStation(st) {
   return {
     name: (st && st.name) ? st.name : "",
@@ -112,6 +136,7 @@ async function tryRadioBrowserLogo(stationUrl) {
 module.exports = NodeHelper.create({
   start() {
     this.config = null;
+    this.language = "en";
     this.ipcPath = null;
   
     this.state = {
@@ -460,6 +485,7 @@ module.exports = NodeHelper.create({
    if (notification === "MMM_WEBRADIO_INIT") {
       console.log("[MMM-WebRadio] INIT received");
       this.config = payload.config;
+      this.language = payload.language || "en";
 
       // Load persisted state (uses config.persist.file if configured)
       this.loadPersistedFromConfig();
@@ -571,6 +597,11 @@ module.exports = NodeHelper.create({
 
     // Serve UI (no auth; API remains protected)
     this.app.use("/", express.static(path.join(__dirname, "public")));
+
+    // UI strings in MagicMirror's language (public: needed before token entry)
+    this.app.get("/api/i18n", (req, res) => {
+      res.json(Object.assign({ ok: true }, loadTranslations(this.language)));
+    });
 
     this.app.get("/api/state", auth, (req, res) => {
       res.json({ ok: true, state: this.state });

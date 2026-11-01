@@ -17,7 +17,7 @@ It supports station switching, volume control, scheduling, sleep timers, persist
 - Persistence: last station + volume (and scheduler config if changed via API)
 - Scheduler with configurable time windows (supports overnight windows)
 - Sleep timer (stop after N minutes)
-- Multilanguage support (EN/DE/FR/IT)
+- Multilanguage support (EN/DE/FR/IT) for the Mirror UI and the Web UI
 
 ## Screenshots
 ### Mirror UI
@@ -157,6 +157,8 @@ Add to config/config.js:
 | `web.port`    | number  | `8787` | Port for Web UI & API. |
 | `web.token`   | string  | `""`   | API access token. Without a token, anyone on your network can control the radio (a warning is logged at startup). |
 
+The Web UI uses the `language` set in MagicMirror's `config/config.js` (`en`, `de`, `fr`, `it`; region codes like `de-CH` use the base language, other languages fall back to English).
+
 Open the Web UI:
 
 ```text
@@ -237,6 +239,7 @@ Security notes:
 | POST   | `/api/prev`     | Previous station |
 | POST   | `/api/volume`   | Set volume `{ volume }` (0–100) |
 | POST   | `/api/timer`    | Set sleep timer `{ minutes }` (0–1440) |
+| GET    | `/api/i18n`     | Web UI texts in the MagicMirror language (no token required) |
 | GET    | `/api/schedule` | Get scheduler config |
 | POST   | `/api/schedule` | Update scheduler `{ schedule: { ... } }` |
 

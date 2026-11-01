@@ -400,42 +400,42 @@
   <div class="card">
     <div class="module-title">MMM-WebRadio</div>
     <div id="authBox" style="display:none">
-      <p class="muted">This Web UI expects a token. Enter it once:</p>
+      <p class="muted" data-i18n="WEB_TOKEN_PROMPT">This Web UI expects a token. Enter it once:</p>
       <div class="row">
-        <input id="token" placeholder="Token" />
-        <button onclick="saveToken()">Save</button>
+        <input id="token" placeholder="Token" data-i18n-placeholder="WEB_TOKEN_PLACEHOLDER" />
+        <button onclick="saveToken()" data-i18n="WEB_SAVE">Save</button>
       </div>
       <hr />
     </div>
 
     <div class="row station-row">
-      <label>Station</label>
+      <label data-i18n="WEB_STATION">Station</label>
       <select id="stations" class="grow"></select>
 
       <div class="btn-group full">
-        <button onclick="prev()">◀︎</button>
-        <button onclick="play()">Play</button>
-        <button onclick="stop()">Stop</button>
-        <button onclick="next()">▶︎</button>
+        <button onclick="prev()" aria-label="Previous station" data-i18n-aria="WEB_PREV">◀︎</button>
+        <button onclick="play()" data-i18n="WEB_PLAY">Play</button>
+        <button onclick="stop()" data-i18n="WEB_STOP">Stop</button>
+        <button onclick="next()" aria-label="Next station" data-i18n-aria="WEB_NEXT">▶︎</button>
       </div>
     </div>
 
     <div class="row volume-row" style="margin-top:12px">
-      <label>Volume</label>
+      <label data-i18n="VOLUME">Volume</label>
       <div class="full">
         <input id="volume" type="range" min="0" max="100" value="60" oninput="setVolume(this.value)" />
-        <div class="muted" style="margin-top:6px">Volume: <span id="volumeVal">60</span>%</div>
+        <div class="muted" style="margin-top:6px"><span data-i18n="VOLUME">Volume</span>: <span id="volumeVal">60</span>%</div>
       </div>
     </div>
 
    <hr />
 
     <div class="row timer-row" style="margin-top:12px">
-      <label>Sleep timer (minutes)</label>
+      <label data-i18n="WEB_SLEEP_TIMER">Sleep timer (minutes)</label>
       <input id="timerMin" type="number" min="0" max="1440" value="0" class="grow" />
       <div class="btn-group full">
-        <button onclick="setTimer()">Set</button>
-        <button onclick="clearTimer()">Off</button>
+        <button onclick="setTimer()" data-i18n="WEB_SET">Set</button>
+        <button onclick="clearTimer()" data-i18n="WEB_OFF">Off</button>
       </div>
     </div>
 
@@ -462,36 +462,36 @@
 
     <hr />
 
-    <h3>Scheduler</h3>
+    <h3 data-i18n="WEB_SCHEDULER">Scheduler</h3>
 
     <label>
       <input type="checkbox" id="schEnabled">
-      Enabled
+      <span data-i18n="WEB_SCH_ENABLED">Enabled</span>
     </label><br/>
 
     <label>
       <input type="checkbox" id="schAutoStart">
-      Auto-start inside window
+      <span data-i18n="WEB_SCH_AUTOSTART">Auto-start inside window</span>
     </label><br/>
 
     <label>
       <input type="checkbox" id="schStopOutside">
-      Stop outside window
+      <span data-i18n="WEB_SCH_STOP_OUTSIDE">Stop outside window</span>
     </label><br/>
 
     <div class="row timer-at-row">
-      <label for="schSleepAt" class="timer-label">Sleep at</label>
+      <label for="schSleepAt" class="timer-label" data-i18n="WEB_SCH_SLEEP_AT">Sleep at</label>
       <input type="time" id="schSleepAt" class="time-input" />
     </div>
 
 
-    <p>Playback windows:</p>
+    <p data-i18n="WEB_SCH_WINDOWS">Playback windows:</p>
     <div id="schWindows" class="win-list"></div>
-    <button id="schAddWindow" class="full" style="width:100%" onclick="addWindow()">+ Add window</button>
+    <button id="schAddWindow" class="full" style="width:100%" onclick="addWindow()" data-i18n="WEB_ADD_WINDOW">+ Add window</button>
 
     <div class="btn-group full" style="margin-top:10px">
-      <button onclick="loadSchedule()">Reload</button>
-      <button onclick="saveSchedule()">Save</button>
+      <button onclick="loadSchedule()" data-i18n="WEB_RELOAD">Reload</button>
+      <button onclick="saveSchedule()" data-i18n="WEB_SAVE">Save</button>
     </div>
     <p id="schStatus" class="pill"></p>
 
@@ -510,6 +510,28 @@
       history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : "") + window.location.hash);
     }
   })();
+  // --- Translations (language comes from MagicMirror's config.js) ---
+  let i18n = {};
+  const t = (key, vars) => {
+    let s = Object.prototype.hasOwnProperty.call(i18n, key) ? String(i18n[key]) : key;
+    if (vars) Object.keys(vars).forEach(k => { s = s.split("{" + k + "}").join(String(vars[k])); });
+    return s;
+  };
+
+  async function loadI18n() {
+    try {
+      const r = await (await fetch(API("/api/i18n"))).json();
+      if (!r.ok) return;
+      i18n = r.strings || {};
+      document.documentElement.lang = r.language || "en";
+    } catch (_) {
+      return; // keep the built-in English texts
+    }
+    document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+    document.querySelectorAll("[data-i18n-aria]").forEach(el => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
+  }
+
   const getToken = () => localStorage.getItem("mmm_webradio_token") || "";
   const headers = () => {
     const t = getToken();
@@ -537,6 +559,7 @@
   }
 
   async function init() {
+    if (!Object.keys(i18n).length) await loadI18n();
     const st = await apiGet("/api/stations");
     if (!st.ok && st.error === "unauthorized") {
       document.getElementById("authBox").style.display = "block";
@@ -566,8 +589,8 @@
     if (!res.ok) return;
 
     const s = res.state;
-    document.getElementById("status").textContent = s.playing ? "Playing" : "Stopped";
-    document.getElementById("title").textContent = s.title || "(no metadata)";
+    document.getElementById("status").textContent = s.playing ? t("PLAYING") : t("STOPPED");
+    document.getElementById("title").textContent = s.title || t("NO_METADATA");
     document.getElementById("stations").value = s.stationIndex;
     document.getElementById("stationName").textContent =
     document.getElementById("stations").selectedOptions[0]?.textContent || "";
@@ -587,7 +610,7 @@
     const timerInfo = document.getElementById("timerInfo");
     if (s.sleepTimerEndsAt) {
       const mins = Math.max(0, Math.ceil((s.sleepTimerEndsAt - Date.now()) / 60000));
-      timerInfo.textContent = `Timer: ${mins} min remaining`;
+      timerInfo.textContent = t("WEB_TIMER_REMAINING", { n: mins });
     } else {
       timerInfo.textContent = "";
     }
@@ -625,9 +648,9 @@
   }
   async function loadSchedule() {
     const out = document.getElementById("schStatus");
-    out.textContent = "Loading...";
+    out.textContent = t("WEB_LOADING");
     const r = await apiGet("/api/schedule");
-    if (!r.ok) { out.textContent = "Error loading schedule"; return; }
+    if (!r.ok) { out.textContent = t("WEB_LOAD_ERROR"); return; }
 
     const s = r.schedule || {};
     document.getElementById("schEnabled").checked = !!s.enabled;
@@ -645,21 +668,21 @@
       }));
     renderWindows();
 
-    out.textContent = "Loaded.";
+    out.textContent = t("WEB_LOADED");
   }
 
   // --- Scheduler window editor ---
   const MAX_WINDOWS = 50;
   // Display order Mon..Sun; values follow JS getDay() (0 = Sunday)
   const DAYS = [
-    { value: 1, label: "Mon" }, { value: 2, label: "Tue" }, { value: 3, label: "Wed" },
-    { value: 4, label: "Thu" }, { value: 5, label: "Fri" }, { value: 6, label: "Sat" },
-    { value: 0, label: "Sun" }
+    { value: 1, label: "WEB_DAY_MON" }, { value: 2, label: "WEB_DAY_TUE" }, { value: 3, label: "WEB_DAY_WED" },
+    { value: 4, label: "WEB_DAY_THU" }, { value: 5, label: "WEB_DAY_FRI" }, { value: 6, label: "WEB_DAY_SAT" },
+    { value: 0, label: "WEB_DAY_SUN" }
   ];
   const DAY_PRESETS = [
-    { label: "Weekdays", days: [1, 2, 3, 4, 5] },
-    { label: "Weekend", days: [6, 0] },
-    { label: "Every day", days: [] }
+    { label: "WEB_PRESET_WEEKDAYS", days: [1, 2, 3, 4, 5] },
+    { label: "WEB_PRESET_WEEKEND", days: [6, 0] },
+    { label: "WEB_PRESET_EVERY_DAY", days: [] }
   ];
   let schWindows = [];
 
@@ -676,10 +699,10 @@
 
   function windowHint(w) {
     const parts = [];
-    if (!w.days.length) parts.push("Every day (no day selected).");
+    if (!w.days.length) parts.push(t("WEB_HINT_EVERY_DAY"));
     if (w.start && w.end) {
-      if (w.start === w.end) parts.push("Start = end: plays all day.");
-      else if (w.end < w.start) parts.push("Overnight: ends the next day.");
+      if (w.start === w.end) parts.push(t("WEB_HINT_ALL_DAY"));
+      else if (w.end < w.start) parts.push(t("WEB_HINT_OVERNIGHT"));
     }
     return parts.join(" ");
   }
@@ -691,7 +714,7 @@
     if (!schWindows.length) {
       const empty = document.createElement("div");
       empty.className = "win-empty";
-      empty.textContent = "No windows yet. Add one to define when the radio may play.";
+      empty.textContent = t("WEB_NO_WINDOWS");
       list.appendChild(empty);
     }
 
@@ -704,12 +727,12 @@
       head.className = "win-head";
       const title = document.createElement("div");
       title.className = "win-title";
-      title.textContent = "Window " + (i + 1);
+      title.textContent = t("WEB_WINDOW", { n: i + 1 });
       const del = document.createElement("button");
       del.className = "win-remove";
       del.type = "button";
-      del.textContent = "Remove";
-      del.setAttribute("aria-label", "Remove window " + (i + 1));
+      del.textContent = t("WEB_REMOVE");
+      del.setAttribute("aria-label", t("WEB_REMOVE_WINDOW", { n: i + 1 }));
       del.onclick = () => removeWindow(i);
       head.appendChild(title);
       head.appendChild(del);
@@ -725,7 +748,7 @@
       const days = document.createElement("div");
       days.className = "days";
       days.setAttribute("role", "group");
-      days.setAttribute("aria-label", "Days");
+      days.setAttribute("aria-label", t("WEB_DAYS"));
       const dayInputs = [];
       DAYS.forEach(d => {
         const lab = document.createElement("label");
@@ -738,7 +761,7 @@
           updateHint();
         };
         const span = document.createElement("span");
-        span.textContent = d.label;
+        span.textContent = t(d.label);
         lab.appendChild(cb);
         lab.appendChild(span);
         days.appendChild(lab);
@@ -751,7 +774,7 @@
       DAY_PRESETS.forEach(p => {
         const b = document.createElement("button");
         b.type = "button";
-        b.textContent = p.label;
+        b.textContent = t(p.label);
         b.onclick = () => {
           w.days = p.days.slice();
           DAYS.forEach((d, k) => { dayInputs[k].checked = w.days.includes(d.value); });
@@ -763,11 +786,11 @@
       // Start / end times
       const times = document.createElement("div");
       times.className = "win-times";
-      [["start", "From"], ["end", "To"]].forEach(([key, text]) => {
+      [["start", "WEB_FROM"], ["end", "WEB_TO"]].forEach(([key, text]) => {
         const id = `win-${i}-${key}`;
         const lab = document.createElement("label");
         lab.htmlFor = id;
-        lab.textContent = text;
+        lab.textContent = t(text);
         const inp = document.createElement("input");
         inp.type = "time";
         inp.id = id;
@@ -789,7 +812,7 @@
 
     const add = document.getElementById("schAddWindow");
     add.disabled = schWindows.length >= MAX_WINDOWS;
-    add.textContent = add.disabled ? `Maximum of ${MAX_WINDOWS} windows reached` : "+ Add window";
+    add.textContent = add.disabled ? t("WEB_MAX_WINDOWS", { n: MAX_WINDOWS }) : t("WEB_ADD_WINDOW");
   }
 
   async function saveSchedule() {
@@ -797,12 +820,12 @@
 
     const incomplete = schWindows.findIndex(w => !w.start || !w.end);
     if (incomplete !== -1) {
-      out.textContent = `Window ${incomplete + 1}: please set both times.`;
+      out.textContent = t("WEB_TIMES_MISSING", { n: incomplete + 1 });
       return;
     }
     const windows = schWindows.map(w => ({ days: w.days.slice(), start: w.start, end: w.end }));
 
-    out.textContent = "Saving...";
+    out.textContent = t("WEB_SAVING");
 
     const schedule = {
       enabled: document.getElementById("schEnabled").checked,
@@ -813,7 +836,7 @@
     };
 
     const r = await apiPost("/api/schedule", { schedule });
-    out.textContent = r.ok ? "Saved." : ("Save failed: " + (r.error || "unknown"));
+    out.textContent = r.ok ? t("WEB_SAVED") : t("WEB_SAVE_FAILED", { error: r.error || "unknown" });
   }
 
   init();

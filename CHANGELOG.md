@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `/api/play`, `/api/volume` and `/api/timer` reject invalid values with `400`
 - `npm run upgrade` no longer deletes `webradio-state.json`
 
+### Added
+- Web UI is translated into the MagicMirror `language` from `config.js` (EN/DE/FR/IT, English fallback), served via the new public endpoint `GET /api/i18n`
+
 ### Changed
 - Web UI: playback windows are edited through a menu (day chips, presets, time pickers, add/remove) instead of a JSON text field
 - `eslint` moved to `devDependencies`; install with `npm install --omit=dev`
