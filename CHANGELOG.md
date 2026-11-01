@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `npm run upgrade` no longer deletes `webradio-state.json`
 
 ### Changed
+- Web UI: playback windows are edited through a menu (day chips, presets, time pickers, add/remove) instead of a JSON text field
 - `eslint` moved to `devDependencies`; install with `npm install --omit=dev`
 - `lint` moved from `engines` to `scripts`; ESLint now knows the browser globals in `MMM-WebRadio.js`
 

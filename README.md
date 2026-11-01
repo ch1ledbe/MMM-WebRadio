@@ -28,20 +28,11 @@ It supports station switching, volume control, scheduling, sleep timers, persist
 ![alt text](image-1.png)
 
 ### Scheduler Configuration
-```bash
-[
-  {
-    "days": [1,2,3,4,5],
-    "start": "06:30",
-    "end": "06:50"
-  },
-  {
-    "days": [6,0],
-    "start": "08:00",
-    "end": "12:00"
-  }
-]
-```
+The Web UI has a menu for playback windows; no JSON editing is needed:
+- **+ Add window** creates a new window, **Remove** deletes it
+- Tap the day chips (Mon–Sun) to pick days, or use the presets *Weekdays*, *Weekend* and *Every day* (no day selected = every day)
+- Pick **From** / **To** times; windows that end before they start run overnight
+- **Save** applies the schedule, **Reload** discards unsaved changes
 
 ## Requirements
 - MagicMirror²

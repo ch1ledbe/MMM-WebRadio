@@ -20,6 +20,7 @@
       --input-fg: #111111;
       --hr: #eeeeee;
       --pill-bg: #fafafa;
+      --accent: #2f5fe0;
     }
 
     body{
@@ -146,6 +147,7 @@
         --input-fg: #e9e9ea;
         --hr: #232a36;
         --pill-bg: #161b24;
+        --accent: #3a6ff7;
       }
 
       /* nicer focus ring on dark */
@@ -222,6 +224,108 @@
       color: var(--input-fg);
     }
 
+    /* Scheduler window editor */
+    .win-list{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .win{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--pill-bg);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .win-head{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .win-title{ font-weight: 600; font-size: 14px; }
+
+    .win-remove{
+      min-height: 36px;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+
+    .days{
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .day{ position: relative; }
+    .day input{
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+    }
+    .day span{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 40px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--btn-bg);
+      color: var(--btn-fg);
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .day input:checked + span{
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+    .day input:focus-visible + span{
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .presets{
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .presets button{
+      min-height: 32px;
+      padding: 4px 10px;
+      font-size: 13px;
+      border-radius: 999px;
+    }
+
+    .win-times{
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .win-times label{ font-size: 14px; color: var(--muted); }
+
+    .win-hint{ font-size: 13px; color: var(--muted); }
+
+    .win-empty{
+      font-size: 14px;
+      color: var(--muted);
+      padding: 12px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      text-align: center;
+    }
+
     /* Prevent iOS from forcing weird input colors */
     input, textarea, select, button{
       -webkit-tap-highlight-color: transparent;
@@ -267,9 +371,13 @@
         font-size: 13px;
       }
 
-      /* Scheduler controls */
-      #schWindows{ min-height: 140px; }
+      /* Scheduler windows: time inputs stacked */
+      .win-times{ flex-direction: column; align-items: stretch; }
+      .win-times .time-input{ width: 100%; }
 
+      /* Fit all seven day chips in one row */
+      .days{ gap: 4px; }
+      .day span{ min-width: 36px; padding: 0 4px; font-size: 13px; }
     }
 
     @media (max-width: 520px) and (orientation: portrait){
@@ -377,8 +485,9 @@
     </div>
 
 
-    <p>Windows (JSON):</p>
-    <textarea id="schWindows" rows="6" style="width:100%;"></textarea>
+    <p>Playback windows:</p>
+    <div id="schWindows" class="win-list"></div>
+    <button id="schAddWindow" class="full" style="width:100%" onclick="addWindow()">+ Add window</button>
 
     <div class="btn-group full" style="margin-top:10px">
       <button onclick="loadSchedule()">Reload</button>
@@ -527,24 +636,173 @@
     document.getElementById("schSleepAt").value = s.sleepAt || "";
 
     const windows = Array.isArray(s.windows) ? s.windows : [];
-    document.getElementById("schWindows").value = JSON.stringify(windows, null, 2);
+    schWindows = windows
+      .filter(w => w && typeof w === "object")
+      .map(w => ({
+        days: Array.isArray(w.days) ? w.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [],
+        start: typeof w.start === "string" ? w.start.padStart(5, "0") : "",
+        end: typeof w.end === "string" ? w.end.padStart(5, "0") : ""
+      }));
+    renderWindows();
 
     out.textContent = "Loaded.";
   }
 
+  // --- Scheduler window editor ---
+  const MAX_WINDOWS = 50;
+  // Display order Mon..Sun; values follow JS getDay() (0 = Sunday)
+  const DAYS = [
+    { value: 1, label: "Mon" }, { value: 2, label: "Tue" }, { value: 3, label: "Wed" },
+    { value: 4, label: "Thu" }, { value: 5, label: "Fri" }, { value: 6, label: "Sat" },
+    { value: 0, label: "Sun" }
+  ];
+  const DAY_PRESETS = [
+    { label: "Weekdays", days: [1, 2, 3, 4, 5] },
+    { label: "Weekend", days: [6, 0] },
+    { label: "Every day", days: [] }
+  ];
+  let schWindows = [];
+
+  function addWindow() {
+    if (schWindows.length >= MAX_WINDOWS) return;
+    schWindows.push({ days: [1, 2, 3, 4, 5], start: "07:00", end: "08:00" });
+    renderWindows();
+  }
+
+  function removeWindow(i) {
+    schWindows.splice(i, 1);
+    renderWindows();
+  }
+
+  function windowHint(w) {
+    const parts = [];
+    if (!w.days.length) parts.push("Every day (no day selected).");
+    if (w.start && w.end) {
+      if (w.start === w.end) parts.push("Start = end: plays all day.");
+      else if (w.end < w.start) parts.push("Overnight: ends the next day.");
+    }
+    return parts.join(" ");
+  }
+
+  function renderWindows() {
+    const list = document.getElementById("schWindows");
+    list.innerHTML = "";
+
+    if (!schWindows.length) {
+      const empty = document.createElement("div");
+      empty.className = "win-empty";
+      empty.textContent = "No windows yet. Add one to define when the radio may play.";
+      list.appendChild(empty);
+    }
+
+    schWindows.forEach((w, i) => {
+      const card = document.createElement("div");
+      card.className = "win";
+
+      // Header: title + remove
+      const head = document.createElement("div");
+      head.className = "win-head";
+      const title = document.createElement("div");
+      title.className = "win-title";
+      title.textContent = "Window " + (i + 1);
+      const del = document.createElement("button");
+      del.className = "win-remove";
+      del.type = "button";
+      del.textContent = "Remove";
+      del.setAttribute("aria-label", "Remove window " + (i + 1));
+      del.onclick = () => removeWindow(i);
+      head.appendChild(title);
+      head.appendChild(del);
+
+      const hint = document.createElement("div");
+      hint.className = "win-hint";
+      const updateHint = () => {
+        hint.textContent = windowHint(w);
+        hint.hidden = !hint.textContent;
+      };
+
+      // Day toggles
+      const days = document.createElement("div");
+      days.className = "days";
+      days.setAttribute("role", "group");
+      days.setAttribute("aria-label", "Days");
+      const dayInputs = [];
+      DAYS.forEach(d => {
+        const lab = document.createElement("label");
+        lab.className = "day";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = w.days.includes(d.value);
+        cb.onchange = () => {
+          w.days = DAYS.filter((x, k) => dayInputs[k].checked).map(x => x.value);
+          updateHint();
+        };
+        const span = document.createElement("span");
+        span.textContent = d.label;
+        lab.appendChild(cb);
+        lab.appendChild(span);
+        days.appendChild(lab);
+        dayInputs.push(cb);
+      });
+
+      // Day presets
+      const presets = document.createElement("div");
+      presets.className = "presets";
+      DAY_PRESETS.forEach(p => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = p.label;
+        b.onclick = () => {
+          w.days = p.days.slice();
+          DAYS.forEach((d, k) => { dayInputs[k].checked = w.days.includes(d.value); });
+          updateHint();
+        };
+        presets.appendChild(b);
+      });
+
+      // Start / end times
+      const times = document.createElement("div");
+      times.className = "win-times";
+      [["start", "From"], ["end", "To"]].forEach(([key, text]) => {
+        const id = `win-${i}-${key}`;
+        const lab = document.createElement("label");
+        lab.htmlFor = id;
+        lab.textContent = text;
+        const inp = document.createElement("input");
+        inp.type = "time";
+        inp.id = id;
+        inp.className = "time-input";
+        inp.value = w[key];
+        inp.oninput = () => { w[key] = inp.value; updateHint(); };
+        times.appendChild(lab);
+        times.appendChild(inp);
+      });
+
+      card.appendChild(head);
+      card.appendChild(days);
+      card.appendChild(presets);
+      card.appendChild(times);
+      card.appendChild(hint);
+      updateHint();
+      list.appendChild(card);
+    });
+
+    const add = document.getElementById("schAddWindow");
+    add.disabled = schWindows.length >= MAX_WINDOWS;
+    add.textContent = add.disabled ? `Maximum of ${MAX_WINDOWS} windows reached` : "+ Add window";
+  }
+
   async function saveSchedule() {
     const out = document.getElementById("schStatus");
-    out.textContent = "Saving...";
 
-    let windows = [];
-    try {
-      const raw = document.getElementById("schWindows").value.trim();
-      windows = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(windows)) throw new Error("windows not array");
-    } catch (e) {
-      out.textContent = "Windows JSON invalid: " + e.message;
+    const incomplete = schWindows.findIndex(w => !w.start || !w.end);
+    if (incomplete !== -1) {
+      out.textContent = `Window ${incomplete + 1}: please set both times.`;
       return;
     }
+    const windows = schWindows.map(w => ({ days: w.days.slice(), start: w.start, end: w.end }));
+
+    out.textContent = "Saving...";
 
     const schedule = {
       enabled: document.getElementById("schEnabled").checked,
