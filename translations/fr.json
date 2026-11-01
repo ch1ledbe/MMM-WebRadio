@@ -24,7 +24,7 @@
   "WEB_SCHEDULER": "Programmation",
   "WEB_SCH_ENABLED": "Activée",
   "WEB_SCH_AUTOSTART": "Démarrer automatiquement dans la plage",
-  "WEB_SCH_STOP_OUTSIDE": "Arrêter hors des plages",
+  "WEB_SCH_STOP_OUTSIDE": "Arrêter aussi la lecture lancée manuellement hors des plages",
   "WEB_SCH_SLEEP_AT": "Arrêt à",
   "WEB_SCH_WINDOWS": "Plages de lecture :",
   "WEB_NO_WINDOWS": "Aucune plage pour l'instant. Ajoutez-en une pour définir quand la radio peut jouer.",

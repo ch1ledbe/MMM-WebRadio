@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Web UI removes `?token=` from the address bar after storing it
 
 ### Fixed
+- Playback started by the scheduler now always stops when its window ends (previously only with `stopOutsideWindow: true`); `stopOutsideWindow` now only decides about manually started playback
+- Overnight windows (e.g. Sat 22:00 → 02:00) no longer stop at midnight; `days` refers to the day the window starts
+- `autoStartInsideWindow: false` is respected at all times, not only at startup
 - Strict validation of `/api/schedule` input; unknown keys are dropped
 - Invalid persisted schedules are ignored instead of breaking the module on startup
 - Scheduler errors no longer crash the scheduler loop

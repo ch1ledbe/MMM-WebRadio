@@ -158,6 +158,7 @@ module.exports = NodeHelper.create({
     this.server = null;
 
     this.manualStopLatch = false;
+    this.scheduleStarted = false; // current playback was started by the scheduler
     this.lastInsideScheduleWindow = null;
 
     // Persistence
@@ -355,10 +356,10 @@ module.exports = NodeHelper.create({
     }
 
     // run once immediately, then every 30s
-    this.applyScheduleOnce(true);
+    this.applyScheduleOnce();
 
     if (this.scheduleTimer) clearInterval(this.scheduleTimer);
-    this.scheduleTimer = setInterval(() => this.applyScheduleOnce(false), 30 * 1000);
+    this.scheduleTimer = setInterval(() => this.applyScheduleOnce(), 30 * 1000);
   },
 
   stopScheduler() {
@@ -366,16 +367,16 @@ module.exports = NodeHelper.create({
     this.scheduleTimer = null;
   },
 
-  applyScheduleOnce(isBoot) {
+  applyScheduleOnce() {
     try {
-      this.applyScheduleRules(isBoot);
+      this.applyScheduleRules();
     } catch (e) {
       // A broken schedule must never take down the module
       console.error("[MMM-WebRadio] Scheduler error:", e.message);
     }
   },
 
-  applyScheduleRules(isBoot) {
+  applyScheduleRules() {
     const sch = this.config && this.config.schedule ? this.config.schedule : null;
     if (!sch || !sch.enabled) return;
 
@@ -383,11 +384,16 @@ module.exports = NodeHelper.create({
     const day = d.getDay(); // 0=Sun..6=Sat
     const minNow = d.getHours() * 60 + d.getMinutes();
 
-    const inWindow = (nowMins, startM, endM) => {
+    const prevDay = (day + 6) % 7;
+    const dayAllowed = (days, dd) => !days.length || days.indexOf(dd) !== -1;
+
+    // `days` are the days a window starts on; the part of an overnight
+    // window after midnight belongs to the previous day.
+    const inWindow = (days, startM, endM) => {
       if (startM == null || endM == null) return false;
-      if (startM === endM) return true;
-      if (startM < endM) return nowMins >= startM && nowMins < endM;
-      return nowMins >= startM || nowMins < endM; // crosses midnight
+      if (startM === endM) return dayAllowed(days, day);
+      if (startM < endM) return dayAllowed(days, day) && minNow >= startM && minNow < endM;
+      return (dayAllowed(days, day) && minNow >= startM) || (dayAllowed(days, prevDay) && minNow < endM);
     };
 
     // Optional hard sleepAt stop
@@ -406,24 +412,24 @@ module.exports = NodeHelper.create({
       const w = windows[i];
       if (!w || typeof w !== "object") continue;
       const days = Array.isArray(w.days) ? w.days : [];
-      if (days.length && days.indexOf(day) === -1) continue;
 
-      const startMin = parseHHMM(w.start);
-      const endMin = parseHHMM(w.end);
-
-      if (inWindow(minNow, startMin, endMin)) {
+      if (inWindow(days, parseHHMM(w.start), parseHHMM(w.end))) {
         inside = true;
         break;
       }
     }
 
     if (inside) {
-      if (isBoot && sch.autoStartInsideWindow === false) return;
+      if (sch.autoStartInsideWindow === false) return;
       if (!this.state.playing && !this.manualStopLatch) {
+        this.scheduleStarted = true;
         this.play(this.state.stationIndex, { fadeIn: true }); // scheduler-only fade in
       }
     } else {
-      if (sch.stopOutsideWindow && this.state.playing) this.fadeOutThenStop();
+      // Playback the scheduler started always ends with its window;
+      // stopOutsideWindow additionally stops manually started playback.
+      if (this.state.playing && (this.scheduleStarted || sch.stopOutsideWindow)) this.fadeOutThenStop();
+      this.scheduleStarted = false;
     }
 
     if (!inside) {
@@ -622,6 +628,7 @@ module.exports = NodeHelper.create({
         }
       }
       this.manualStopLatch = false;         // user explicitly wants playback
+      if (!this.state.playing) this.scheduleStarted = false;
       this.play(idx).then(() => res.json({ ok: true, state: this.state }));
     });
 
@@ -641,11 +648,13 @@ module.exports = NodeHelper.create({
 
     this.app.post("/api/next", auth, (req, res) => {
       this.manualStopLatch = false;
+      if (!this.state.playing) this.scheduleStarted = false;
       this.play(this.state.stationIndex + 1).then(() => res.json({ ok: true, state: this.state }));
     });
 
     this.app.post("/api/prev", auth, (req, res) => {
       this.manualStopLatch = false;
+      if (!this.state.playing) this.scheduleStarted = false;
       this.play(this.state.stationIndex - 1).then(() => res.json({ ok: true, state: this.state }));
     });
 

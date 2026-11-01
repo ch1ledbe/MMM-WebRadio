@@ -24,7 +24,7 @@
   "WEB_SCHEDULER": "Scheduler",
   "WEB_SCH_ENABLED": "Enabled",
   "WEB_SCH_AUTOSTART": "Auto-start inside window",
-  "WEB_SCH_STOP_OUTSIDE": "Stop outside window",
+  "WEB_SCH_STOP_OUTSIDE": "Also stop manually started playback outside windows",
   "WEB_SCH_SLEEP_AT": "Sleep at",
   "WEB_SCH_WINDOWS": "Playback windows:",
   "WEB_NO_WINDOWS": "No windows yet. Add one to define when the radio may play.",

@@ -24,7 +24,7 @@
   "WEB_SCHEDULER": "Zeitplan",
   "WEB_SCH_ENABLED": "Aktiviert",
   "WEB_SCH_AUTOSTART": "Im Zeitfenster automatisch starten",
-  "WEB_SCH_STOP_OUTSIDE": "Ausserhalb der Zeitfenster stoppen",
+  "WEB_SCH_STOP_OUTSIDE": "Auch manuell gestartete Wiedergabe ausserhalb der Zeitfenster stoppen",
   "WEB_SCH_SLEEP_AT": "Ausschalten um",
   "WEB_SCH_WINDOWS": "Zeitfenster:",
   "WEB_NO_WINDOWS": "Noch keine Zeitfenster. Füge eines hinzu, um festzulegen, wann das Radio spielen darf.",

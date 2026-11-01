@@ -24,7 +24,7 @@
   "WEB_SCHEDULER": "Programmazione",
   "WEB_SCH_ENABLED": "Attiva",
   "WEB_SCH_AUTOSTART": "Avvio automatico nella fascia",
-  "WEB_SCH_STOP_OUTSIDE": "Ferma fuori dalle fasce",
+  "WEB_SCH_STOP_OUTSIDE": "Ferma anche la riproduzione avviata manualmente fuori dalle fasce",
   "WEB_SCH_SLEEP_AT": "Spegni alle",
   "WEB_SCH_WINDOWS": "Fasce orarie:",
   "WEB_NO_WINDOWS": "Nessuna fascia oraria. Aggiungine una per stabilire quando la radio può suonare.",

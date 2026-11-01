@@ -195,9 +195,9 @@ The scheduler controls when playback is allowed.
 | `schedule.windows`               | array          | `[]`    | Allowed playback windows. |
 | `schedule.windows[].days`        | array of `0–6` | —       | Days (0=Sun … 6=Sat). Empty means “every day”. |
 | `schedule.windows[].start`       | `"HH:MM"`      | —       | Window start time. |
-| `schedule.windows[].end`         | `"HH:MM"`      | —       | Window end time. Supports overnight windows (e.g. 22:00 → 06:00). |
-| `schedule.autoStartInsideWindow` | boolean        | `true`  | If `true`, the scheduler can start playback when entering a window. Set to `false` if you only want “auto-stop”. |
-| `schedule.stopOutsideWindow`     | boolean        | `false` | Stop playback when outside all windows. |
+| `schedule.windows[].end`         | `"HH:MM"`      | —       | Window end time. Supports overnight windows (e.g. 22:00 → 06:00); `days` refers to the day the window starts. |
+| `schedule.autoStartInsideWindow` | boolean        | `true`  | If `true`, the scheduler starts playback inside a window. Set to `false` if you only want “auto-stop”. |
+| `schedule.stopOutsideWindow`     | boolean        | `false` | Also stop playback you started manually (Web UI / API) when outside all windows. Playback started by the scheduler always stops when its window ends. |
 | `schedule.sleepAt`               | `"HH:MM"`      | `""`    | Optional fixed daily stop time. |
 
 Notes:
